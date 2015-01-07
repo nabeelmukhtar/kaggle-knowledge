@@ -35,9 +35,11 @@ def pre_process(df):
 
 # For .read_csv, always use header=0 when you know row 0 is the header row
 train_df = pd.read_csv('/home/namukhtar/Datasets/kaggle/titanic/train.csv', header=0)
+print train_df.head(10)
 train_data = pre_process(train_df)
 
 test_df = pd.read_csv('/home/namukhtar/Datasets/kaggle/titanic/test.csv', header=0)
+print test_df.head(10)
 test_data = pre_process(test_df)
 
 # Import the random forest package
