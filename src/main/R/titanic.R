@@ -1,66 +1,92 @@
-library(caret)
-## set seed
-set.seed(32343)
-wle_data <- read.csv("data/pml-training.csv", na.strings = c("", "NA", "#DIV/0!"))
+# Trevor Stephens - 18 Jan 2014
+# Titanic: Getting Started With R - Part 5: Random Forests
+# Full guide available at http://trevorstephens.com/
 
-predictors <- colnames(wle_data)
-predictors <- predictors[colSums(is.na(wle_data)) == 0]
-predictors <- predictors[-(1:7)]
-# nsv <- nearZeroVar(wle_data[, predictors])
-# predictors <- predictors[-nsv]
-classes <- unique(wle_data$classe)
-class_colors <- 1 + as.integer(classes)
-fitControl <- trainControl(method="repeatedcv",
-		number=5,
-		repeats=1,
-		verboseIter=FALSE)
+# Set working directory and import datafiles
+train <- read.csv("/home/namukhtar/Datasets/kaggle/titanic/train.csv")
+test <- read.csv("/home/namukhtar/Datasets/kaggle/titanic/test.csv")
 
-inBuild <- createDataPartition(y=wle_data$classe,
-		p=0.7, list=FALSE)
-validation <- wle_data[-inBuild, predictors]
-buildData <- wle_data[inBuild, predictors]
-inTrain <- createDataPartition(y=buildData$classe,
-		p=0.7, list=FALSE)
-training <- buildData[inTrain, ]
-testing <- buildData[-inTrain, ]
-rm(buildData, wle_data, inBuild, inTrain)
-clean <- gc(FALSE)
-rm(clean)
+# Install and load required packages for decision trees and forests
+library(rpart)
+library(randomForest)
+library(party)
 
-modeltree <- train(classe ~., data=training, method="rpart", trControl=fitControl)
-library(rattle)
-fancyRpartPlot(modeltree$finalModel)
-predicttree <- predict(modeltree, newdata=testing)
-cmtree <- confusionMatrix(predicttree, testing$classe)
-plot(cmtree$table, col = class_colors, main = paste("Decision Tree Confusion Matrix: Accuracy=", round(cmtree$overall['Accuracy'], 2)))
-kable(cmtree$byClass, digits = 2, caption = "Per Class Metrics")
+# Join together the test and train sets for easier feature engineering
+test$Survived <- NA
+combi <- rbind(train, test)
 
-modellda <- train(classe ~., data=training, method="lda", trControl=fitControl)
-predictlda <- predict(modellda, newdata=testing)
-cmlda <- confusionMatrix(predictlda, testing$classe)
-plot(cmlda$table, col = class_colors, main = paste("LDA Confusion Matrix: Accuracy=", round(cmlda$overall['Accuracy'], 2)))
-kable(cmlda$byClass, digits = 2, caption = "Per Class Metrics")
+# Convert to a string
+combi$Name <- as.character(combi$Name)
 
-modelgbm <- train(classe ~., data=training, method="gbm", trControl=fitControl, verbose = FALSE)
-predictgbm <- predict(modelgbm, newdata=testing)
-cmgbm <- confusionMatrix(predictgbm, testing$classe)
-plot(cmgbm$table, col = class_colors, main = paste("GBM Confusion Matrix: Accuracy=", round(cmgbm$overall['Accuracy'], 2)))
-kable(cmgbm$byClass, digits = 2, caption = "Per Class Metrics")
+# Engineered variable: Title
+combi$Title <- sapply(combi$Name, FUN=function(x) {strsplit(x, split='[,.]')[[1]][2]})
+combi$Title <- sub(' ', '', combi$Title)
+# Combine small title groups
+combi$Title[combi$Title %in% c('Mme', 'Mlle')] <- 'Mlle'
+combi$Title[combi$Title %in% c('Capt', 'Don', 'Major', 'Sir')] <- 'Sir'
+combi$Title[combi$Title %in% c('Dona', 'Lady', 'the Countess', 'Jonkheer')] <- 'Lady'
+# Convert to a factor
+combi$Title <- factor(combi$Title)
 
-predicttesting <- data.frame(predicttree, predictgbm, predictlda, classe = testing$classe)
-modelensemble <- train(classe ~ ., data = predicttesting, method = "rf")
-predictvalidation <- data.frame(predicttree = predict(modeltree, newdata=validation),
-		predictgbm = predict(modelgbm, newdata=validation),
-		predictlda = predict(modellda, newdata=validation),
-		classe = validation$classe)
-predictensemble <- predict(modelensemble, predictvalidation)
-cmensemble <- confusionMatrix(predictensemble, validation$classe)
-plot(cmensemble$table, col = class_colors, main = paste("Ensemble Confusion Matrix: Accuracy=", round(cmensemble$overall['Accuracy'], 2)))
-kable(cmensemble$byClass, digits = 2, caption = "Per Class Metrics")
+# Engineered variable: Family size
+combi$FamilySize <- combi$SibSp + combi$Parch + 1
 
-modelrf <- train(classe ~ roll_belt + pitch_forearm + magnet_dumbbell_z + yaw_belt + magnet_dumbbell_y + roll_forearm + pitch_belt, data=training, method="rf", ntree = 100)
-predictrf <- predict(modelrf, newdata=testing)
-cmrf <- confusionMatrix(predictrf, testing$classe)
-plot(cmrf$table, col = class_colors, main = paste("Random Forest Confusion Matrix: Accuracy=", round(cmrf$overall['Accuracy'], 2)))
-kable(cmrf$byClass, digits = 2, caption = "Per Class Metrics")
+# Engineered variable: Family
+combi$Surname <- sapply(combi$Name, FUN=function(x) {strsplit(x, split='[,.]')[[1]][1]})
+combi$FamilyID <- paste(as.character(combi$FamilySize), combi$Surname, sep="")
+combi$FamilyID[combi$FamilySize <= 2] <- 'Small'
+# Delete erroneous family IDs
+famIDs <- data.frame(table(combi$FamilyID))
+famIDs <- famIDs[famIDs$Freq <= 2,]
+combi$FamilyID[combi$FamilyID %in% famIDs$Var1] <- 'Small'
+# Convert to a factor
+combi$FamilyID <- factor(combi$FamilyID)
 
+# Fill in Age NAs
+summary(combi$Age)
+Agefit <- rpart(Age ~ Pclass + Sex + SibSp + Parch + Fare + Embarked + Title + FamilySize, 
+		data=combi[!is.na(combi$Age),], method="anova")
+combi$Age[is.na(combi$Age)] <- predict(Agefit, combi[is.na(combi$Age),])
+# Check what else might be missing
+summary(combi)
+# Fill in Embarked blanks
+summary(combi$Embarked)
+which(combi$Embarked == '')
+combi$Embarked[c(62,830)] = "S"
+combi$Embarked <- factor(combi$Embarked)
+# Fill in Fare NAs
+summary(combi$Fare)
+which(is.na(combi$Fare))
+combi$Fare[1044] <- median(combi$Fare, na.rm=TRUE)
+
+# New factor for Random Forests, only allowed <32 levels, so reduce number
+combi$FamilyID2 <- combi$FamilyID
+# Convert back to string
+combi$FamilyID2 <- as.character(combi$FamilyID2)
+combi$FamilyID2[combi$FamilySize <= 3] <- 'Small'
+# And convert back to factor
+combi$FamilyID2 <- factor(combi$FamilyID2)
+
+# Split back into test and train sets
+train <- combi[1:891,]
+test <- combi[892:1309,]
+
+# Build Random Forest Ensemble
+set.seed(415)
+fit <- randomForest(as.factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + Title + FamilySize + FamilyID2,
+		data=train, importance=TRUE, ntree=2000)
+# Look at variable importance
+varImpPlot(fit)
+# Now let's make a prediction and write a submission file
+Prediction <- predict(fit, test)
+submit <- data.frame(PassengerId = test$PassengerId, Survived = Prediction)
+write.csv(submit, file = "firstforest.csv", row.names = FALSE)
+
+# Build condition inference tree Random Forest
+set.seed(415)
+fit <- cforest(as.factor(Survived) ~ Pclass + Sex + Age + SibSp + Parch + Fare + Embarked + Title + FamilySize + FamilyID,
+		data = train, controls=cforest_unbiased(ntree=2000, mtry=3)) 
+# Now let's make a prediction and write a submission file
+Prediction <- predict(fit, test, OOB=TRUE, type = "response")
+submit <- data.frame(PassengerId = test$PassengerId, Survived = Prediction)
+write.csv(submit, file = "ciforest.csv", row.names = FALSE)

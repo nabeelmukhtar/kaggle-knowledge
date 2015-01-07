@@ -1,63 +1,56 @@
-__author__ = 'namukhtar'
-
-import IPython
-import sklearn as sk
+import pandas as pd
 import numpy as np
-import matplotlib
-import nltk
-import matplotlib.pyplot as plt
 
-
-from sklearn.datasets import fetch_olivetti_faces
-
-faces = fetch_olivetti_faces()
-
-print faces.DESCR
-
-print faces.keys()
-print faces.images.shape
-print faces.data.shape
-print faces.target.shape
-
-print np.max(faces.data)
-print np.min(faces.data)
-print np.mean(faces.data)
-
-def print_faces(images, target, top_n):
-    # set up the figure size in inches
-    fig = plt.figure(figsize=(12, 12))
-    fig.subplots_adjust(left=0, right=1, bottom=0, top=1, hspace=0.05, wspace=0.05)
-    for i in range(top_n):
-        # plot the images in a matrix of 20x20
-        p = fig.add_subplot(20, 20, i + 1, xticks=[], yticks=[])
-        p.imshow(images[i], cmap=plt.cm.bone)
-        
-        # label the image with the target value
-        p.text(0, 14, str(target[i]))
-        p.text(0, 60, str(i))
-        
-print_faces(faces.images, faces.target, 20)
-
-from sklearn.svm import SVC
-
-svc_1 = SVC(kernel='linear')
-print svc_1
-
-from sklearn.cross_validation import train_test_split
-
-X_train, X_test, y_train, y_test = train_test_split(
-        faces.data, faces.target, test_size=0.25, random_state=0)
-
-from sklearn.cross_validation import cross_val_score, KFold
-from scipy.stats import sem
-
-def evaluate_cross_validation(clf, X, y, K):
-    # create a k-fold croos validation iterator
-    cv = KFold(len(y), K, shuffle=True, random_state=0)
-    # by default the score used is the one returned by score method of the estimator (accuracy)
-    scores = cross_val_score(clf, X, y, cv=cv)
-    print scores
-    print ("Mean score: {0:.3f} (+/-{1:.3f})").format(
-        np.mean(scores), sem(scores))
+def pre_process(df):
     
-evaluate_cross_validation(svc_1, X_train, y_train, 5)
+    df['Gender'] = df['Sex'].map( {'female': 0, 'male': 1} ).astype(int)
+    
+    median_ages = np.zeros((2,3))
+    
+    for i in range(0, 2):
+        for j in range(0, 3):
+            median_ages[i,j] = df[(df['Gender'] == i) & \
+                                  (df['Pclass'] == j+1)]['Age'].dropna().median()
+                                  
+    df['AgeFill'] = df['Age']
+    
+    for i in range(0, 2):
+        for j in range(0, 3):
+            df.loc[ (df.Age.isnull()) & (df.Gender == i) & (df.Pclass == j+1),\
+                    'AgeFill'] = median_ages[i,j]
+                    
+    df['AgeIsNull'] = pd.isnull(df.Age).astype(int)
+    
+    df['FamilySize'] = df['SibSp'] + df['Parch']
+    
+    df['Age*Class'] = df.AgeFill * df.Pclass
+    
+    df = df.drop(['Name', 'Sex', 'Ticket', 'Cabin', 'Embarked'], axis=1) 
+    
+    df = df.drop(['Age'], axis=1)
+    
+    df = df.dropna()
+    
+    return df.values
+
+# For .read_csv, always use header=0 when you know row 0 is the header row
+train_df = pd.read_csv('/home/namukhtar/Datasets/kaggle/titanic/train.csv', header=0)
+train_data = pre_process(train_df)
+
+test_df = pd.read_csv('/home/namukhtar/Datasets/kaggle/titanic/test.csv', header=0)
+test_data = pre_process(test_df)
+
+# Import the random forest package
+from sklearn.ensemble import RandomForestClassifier 
+
+# Create the random forest object which will include all the parameters
+# for the fit
+forest = RandomForestClassifier(n_estimators = 100)
+
+# Fit the training data to the Survived labels and create the decision trees
+forest = forest.fit(train_data[0::,1::],train_data[0::,0])
+
+# Take the same decision trees and run it on the test data
+output = forest.predict(test_data)
+
+print output
