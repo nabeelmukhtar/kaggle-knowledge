@@ -46,6 +46,3 @@ forest = forest.fit(train_data[0::,1::],train_data[0::,0])
 
 # Take the same decision trees and run it on the test data
 output = forest.predict(test_data)
-
-
-
