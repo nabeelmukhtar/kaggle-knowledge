@@ -1,4 +1,4 @@
-data.dir    <- '/home/namukhtar/Datasets/kaggle/digit-recognizer/'
+data.dir    <- '~/Datasets/kaggle/digit-recognizer/'
 train.file <- paste0(data.dir, 'train.csv')
 test.file  <- paste0(data.dir, 'test.csv')
 
