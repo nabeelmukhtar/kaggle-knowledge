@@ -32,3 +32,6 @@ rf_benchmark <- function() {
 	
 	write(predictions, file="rf_benchmark.csv", ncolumns=1) 
 }
+
+knn_benchnark()
+rf_benchmark()

@@ -1,63 +1,36 @@
-__author__ = 'namukhtar'
-
-import IPython
-import sklearn as sk
+import pandas as pd
 import numpy as np
-import matplotlib
-import nltk
-import matplotlib.pyplot as plt
+import time
 
-
-from sklearn.datasets import fetch_olivetti_faces
-
-faces = fetch_olivetti_faces()
-
-print faces.DESCR
-
-print faces.keys()
-print faces.images.shape
-print faces.data.shape
-print faces.target.shape
-
-print np.max(faces.data)
-print np.min(faces.data)
-print np.mean(faces.data)
-
-def print_faces(images, target, top_n):
-    # set up the figure size in inches
-    fig = plt.figure(figsize=(12, 12))
-    fig.subplots_adjust(left=0, right=1, bottom=0, top=1, hspace=0.05, wspace=0.05)
-    for i in range(top_n):
-        # plot the images in a matrix of 20x20
-        p = fig.add_subplot(20, 20, i + 1, xticks=[], yticks=[])
-        p.imshow(images[i], cmap=plt.cm.bone)
-        
-        # label the image with the target value
-        p.text(0, 14, str(target[i]))
-        p.text(0, 60, str(i))
-        
-print_faces(faces.images, faces.target, 20)
-
-from sklearn.svm import SVC
-
-svc_1 = SVC(kernel='linear')
-print svc_1
-
-from sklearn.cross_validation import train_test_split
-
-X_train, X_test, y_train, y_test = train_test_split(
-        faces.data, faces.target, test_size=0.25, random_state=0)
-
-from sklearn.cross_validation import cross_val_score, KFold
-from scipy.stats import sem
-
-def evaluate_cross_validation(clf, X, y, K):
-    # create a k-fold croos validation iterator
-    cv = KFold(len(y), K, shuffle=True, random_state=0)
-    # by default the score used is the one returned by score method of the estimator (accuracy)
-    scores = cross_val_score(clf, X, y, cv=cv)
-    print scores
-    print ("Mean score: {0:.3f} (+/-{1:.3f})").format(
-        np.mean(scores), sem(scores))
+def pre_process(df):
+    df = df.drop(['casual', 'registered', 'holiday'], axis=1) 
+    df['datetime'] = pd.to_datetime(df['datetime'])
+    df.set_index('datetime', inplace=True)
+    df['wday'] = df.index.weekday
+    df['hour'] = df.index.hour
     
-evaluate_cross_validation(svc_1, X_train, y_train, 5)
+    return df.values
+
+# For .read_csv, always use header=0 when you know row 0 is the header row
+train_df = pd.read_csv('/home/namukhtar/Datasets/kaggle/bike-sharing-demand/train.csv', header=0)
+# print train_df.head(10)
+train_data = pre_process(train_df)
+
+test_df = pd.read_csv('/home/namukhtar/Datasets/kaggle/bike-sharing-demand/test.csv', header=0)
+# print test_df.head(10)
+test_data = pre_process(test_df)
+
+# Import the random forest package
+from sklearn import linear_model
+
+regr = linear_model.LinearRegression()
+
+regr = regr.fit(train_data[0::,:-1],train_data[0::,-1])
+
+# Take the same decision trees and run it on the test data
+output = regr.predict(test_data)
+
+out_df = pd.DataFrame({'datetime' : test_df['datetime']})
+out_df["count"] = np.round(np.maximum(output,0), decimals=0).astype('int')
+
+out_df.to_csv('bikeshare-linear-regression.csv', index=False)

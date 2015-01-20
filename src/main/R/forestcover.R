@@ -20,7 +20,11 @@ modelrf <- train(Cover_Type ~ ., data=training, method="rf", ntree = 100)
 predictrf <- predict(modelrf, newdata=testing)
 cmrf <- confusionMatrix(predictrf, testing$Cover_Type)
 plot(cmrf$table, col = class_colors, main = paste("Random Forest Confusion Matrix: Accuracy=", round(cmrf$overall['Accuracy'], 2)))
-kable(cmrf$byClass, digits = 2, caption = "Per Class Metrics")
+
+modelcf <- train(Cover_Type ~ ., data=training, method="cforest", controls=cforest_unbiased(ntree=100, mtry=3))
+predictcf <- predict(modelcf, newdata=testing)
+cmcf <- confusionMatrix(predictcf, testing$Cover_Type)
+plot(cmcf$table, col = class_colors, main = paste("Conditional Random Forest Confusion Matrix: Accuracy=", round(cmrf$overall['Accuracy'], 2)))
 
 # submission.
 training <- data[, predictors]
