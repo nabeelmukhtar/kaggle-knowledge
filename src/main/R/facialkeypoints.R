@@ -106,7 +106,7 @@ p <- foreach(coord_i = 1:length(coordinate.names), .combine=cbind) %dopar% {
 # prepare file for submission
 predictions        <- data.frame(ImageId = 1:nrow(d.test), p)
 submission         <- melt(predictions, id.vars="ImageId", variable.name="FeatureName", value.name="Location")
-example.submission <- read.csv(paste0(data.dir, 'submissionFileFormat.csv'))
+example.submission <- read.csv(paste0(data.dir, 'SampleSubmission.csv'))
 sub.col.names      <- names(example.submission)
 example.submission$Location <- NULL
 

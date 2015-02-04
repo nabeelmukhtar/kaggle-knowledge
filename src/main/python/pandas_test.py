@@ -171,9 +171,9 @@ df = pd.DataFrame({'A' : ['one', 'one', 'two', 'three'] * 3,
                        'C' : ['foo', 'foo', 'foo', 'bar', 'bar', 'bar'] * 2,
                        'D' : np.random.randn(12),
                        'E' : np.random.randn(12)})
-
+df.A.value_counts()
 pd.pivot_table(df, values='D', index=['A', 'B'], columns=['C'])
-
+df.sort(columns='B')
 
 # Time Series
 rng = pd.date_range('1/1/2012', periods=100, freq='S')

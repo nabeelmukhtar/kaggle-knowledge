@@ -36,3 +36,20 @@ out_df["Id"] = out_df["Id"].astype("int")
 out_df["Cover_Type"] = out_df["Cover_Type"].astype("int")
 
 out_df.to_csv('forest-randomforest.csv', index=False)
+
+
+# submission #2
+from sklearn.svm import SVR
+svr_rbf = SVR(kernel='rbf', C=1e3, gamma=0.1)
+
+# Fit the training data to the Survived labels and create the decision trees
+svr_rbf = svr_rbf.fit(train_data[0::,:-1],train_data[0::,-1])
+
+# Take the same decision trees and run it on the test data
+output = svr_rbf.predict(test_data)
+
+out_df = pd.DataFrame({'Id' : test_data[0::, 0]})
+out_df["Id"] = out_df["Id"].astype("int")
+out_df["Cover_Type"] = output.astype("int")
+
+out_df.to_csv('forest-svm.csv', index=False)

@@ -12,6 +12,7 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+                <source.level>1.7</source.level>
 	</properties>
 	<repositories>
 		<repository>
